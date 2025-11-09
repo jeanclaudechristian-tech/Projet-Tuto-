@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Tuto+ · Choisir un créneau</title>
+  <link rel="stylesheet" href="../assets/styles.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet" />
+</head>
+<body>
+  <main class="conteneur">
+    <section class="carte">
+      <h1 class="titre">Choisir un créneau (étudiant)</h1>
+
+      <form class="grille" novalidate>
+        <label class="champ">
+          <span class="libelle">Service</span>
+          <select id="service" required></select>
+        </label>
+
+        <label class="champ">
+          <span class="libelle">Tuteur</span>
+          <select id="tuteur" required></select>
+        </label>
+      </form>
+    </section>
+
+    <section class="carte">
+      <div class="entete-liste">
+        <h2 class="soustitre">Créneaux disponibles</h2>
+        <button id="btnBook" class="bouton primaire" disabled>Prendre rendez-vous</button>
+      </div>
+      <div id="liste" class="liste"></div>
+      <p id="vide" class="vide" hidden>Aucun créneau disponible pour ce choix.</p>
+    </section>
+
+    <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+  </main>
+
+  <template id="tpl">
+    <button type="button" class="ligne">
+      <span class="col date"></span>
+      <span class="col heures"></span>
+      <span class="badge ok">Disponible</span>
+    </button>
+  </template>
+
+  <script>
+    // ===== mêmes tables (S1→S4) =====
+    const SERVICES = [
+      { id:"201-150-AH", nom:"Math appliquées à l'informatique 1" },
+      { id:"243-285-AH", nom:"Composants physiques du matériel" },
+      { id:"420-238-AH", nom:"Programmation orientée objet 1" },
+      { id:"420-239-AH", nom:"Systèmes d'exploitation" },
+      { id:"420-240-AH", nom:"Bureautique et dessin" },
+      { id:"201-151-AH", nom:"Math appliquées à l'informatique 2" },
+      { id:"420-241-AH", nom:"Programmation orientée objet 2" },
+      { id:"420-242-AH", nom:"Réseaux locaux" },
+      { id:"350-131-AH", nom:"Communication en informatique" },
+      { id:"420-243-AH", nom:"Programmation orientée objet 3" },
+      { id:"420-244-AH", nom:"Bases de données applicatives" },
+      { id:"570-188-AH", nom:"Interfaces graphiques adaptatives" },
+      { id:"201-152-AH", nom:"Math appliquées à l’infographie jeux vidéo" },
+      { id:"420-245-AH", nom:"Programmation Web 1" },
+      { id:"420-246-AH", nom:"Programmation Microsoft" },
+      { id:"420-247-AH", nom:"Programmation Android" },
+    ];
+
+    const TUTEURS = [
+      { id:"t1", nom:"Mme Dubois" },
+      { id:"t2", nom:"M. Tremblay" },
+      { id:"t3", nom:"Mme Nguyen" },
+      { id:"t4", nom:"M. Lefebvre" },
+      { id:"t5", nom:"Mme Roy" },
+      { id:"t6", nom:"M. Gagnon" },
+    ];
+
+    const OFFRES = {
+      "201-150-AH":["t2","t6"],
+      "243-285-AH":["t4","t6"],
+      "420-238-AH":["t3","t5"],
+      "420-239-AH":["t4","t6"],
+      "420-240-AH":["t1","t5"],
+      "201-151-AH":["t2","t6"],
+      "420-241-AH":["t3","t5"],
+      "420-242-AH":["t4","t6"],
+      "350-131-AH":["t1","t5"],
+      "420-243-AH":["t3","t5"],
+      "420-244-AH":["t3","t2"],
+      "570-188-AH":["t1","t5"],
+      "201-152-AH":["t2","t6"],
+      "420-245-AH":["t3","t5","t2"],
+      "420-246-AH":["t4","t6","t5"],
+      "420-247-AH":["t3","t2"],
+    };
+
+    const LS_DISPOS = "tutoplus_dispos";
+    const LS_RES = "tutoplus_reservations";
+
+    const el = {
+      service: document.getElementById("service"),
+      tuteur:  document.getElementById("tuteur"),
+      liste:   document.getElementById("liste"),
+      vide:    document.getElementById("vide"),
+      tpl:     document.getElementById("tpl"),
+      btnBook: document.getElementById("btnBook"),
+      toast:   document.getElementById("toast"),
+    };
+
+    let selection = null;
+
+    // Init
+    SERVICES.forEach(s=>{ const o=document.createElement("option"); o.value=s.id; o.textContent=`${s.id} — ${s.nom}`; el.service.appendChild(o); });
+    el.service.addEventListener("change", onServiceChange);
+    el.tuteur.addEventListener("change", render);
+    el.btnBook.addEventListener("click", book);
+    onServiceChange();
+
+    function onServiceChange(){
+      const ids = OFFRES[el.service.value] || [];
+      el.tuteur.innerHTML = "";
+      ids.forEach(id=>{
+        const t = TUTEURS.find(x=>x.id===id);
+        if (!t) return;
+        const o = document.createElement("option"); o.value=t.id; o.textContent=t.nom; el.tuteur.appendChild(o);
+      });
+      render();
+    }
+
+    function loadDispos(){ try { return JSON.parse(localStorage.getItem(LS_DISPOS)||"[]"); } catch { return []; } }
+    function saveDispos(list){ localStorage.setItem(LS_DISPOS, JSON.stringify(list)); }
+    function loadRes(){ try { return JSON.parse(localStorage.getItem(LS_RES)||"[]"); } catch { return []; } }
+    function saveRes(list){ localStorage.setItem(LS_RES, JSON.stringify(list)); }
+
+    function nowISO(){ const d=new Date(); return {date:d.toISOString().slice(0,10), time:d.toTimeString().slice(0,5)}; }
+    function isPast(date, debut){ const n=nowISO(); return date<n.date || (date===n.date && debut<=n.time); }
+
+    function render(){
+      selection = null;
+      el.btnBook.disabled = true;
+
+      const serviceId = el.service.value;
+      const tuteurId  = el.tuteur.value;
+
+      const rows = loadDispos()
+        .filter(x => x.serviceId===serviceId && x.tuteurId===tuteurId && x.etat==="disponible")
+        .filter(x => !isPast(x.date, x.debut))
+        .sort((a,b)=> a.date!==b.date ? (a.date<b.date?-1:1) : (a.debut<b.debut?-1:1));
+
+      el.liste.innerHTML = "";
+      el.vide.hidden = rows.length>0;
+
+      rows.forEach(r=>{
+        const n = el.tpl.content.cloneNode(true);
+        const btn = n.querySelector(".ligne");
+        n.querySelector(".date").textContent = r.date;
+        n.querySelector(".heures").textContent = `${r.debut} – ${r.fin}`;
+        btn.addEventListener("click", ()=>{
+          [...document.querySelectorAll(".ligne")].forEach(x=>x.classList.remove("selected"));
+          btn.classList.add("selected");
+          selection = r;
+          el.btnBook.disabled = false;
+        });
+        el.liste.appendChild(n);
+      });
+    }
+
+    function book(){
+      if (!selection) return;
+      const service = SERVICES.find(s=>s.id===selection.serviceId);
+      const tuteur  = TUTEURS.find(t=>t.id===selection.tuteurId);
+
+      const res = loadRes();
+      res.push({
+        id:`res-${Date.now()}`,
+        serviceId: selection.serviceId,
+        service: service ? service.nom : selection.serviceId,
+        tuteurId: selection.tuteurId,
+        tuteur: tuteur ? tuteur.nom : selection.tuteurId,
+        date: selection.date, debut: selection.debut, fin: selection.fin,
+        statut:"réservé", createdAt: Date.now()
+      });
+      saveRes(res);
+
+      const all = loadDispos();
+      const idx = all.findIndex(x=>x.id===selection.id);
+      if (idx!==-1){ all[idx].etat="occupe"; saveDispos(all); }
+
+      show("Réservation confirmée ✔");
+      render();
+    }
+
+    function show(txt){
+      el.toast.textContent = txt; el.toast.dataset.type="ok";
+      el.toast.hidden=false; setTimeout(()=> el.toast.hidden=true, 3000);
+    }
+  </script>
+</body>
+</html>
