@@ -45,8 +45,13 @@
           <button type="button" id="btnAjouter" class="bouton primaire">Ajouter</button>
           <button type="button" id="btnModifier" class="bouton neutre">Modifier</button>
           <button type="button" id="btnSupprimer" class="bouton fantome">Supprimer</button>
+
+          <!-- bouton de sauvegarde -->
+          <button type="button" id="btnSauvegarder" class="bouton primaire">Sauvegarder</button>
         </div>
 
+        <!-- statut visuel -->
+        <p id="save-status" style="font-weight:600; margin-top:0.5em;"></p>
         <p id="message" class="message" aria-live="polite"></p>
       </form>
     </section>
@@ -70,199 +75,28 @@
     </button>
   </template>
 
+  <!-- fichier de sauvegarde -->
+  <script src="../assets/sauvegarde.js"></script>
+
+  <!-- script principal -->
   <script>
-    // ===== Services (S1→S4) =====
-    const SERVICES = [
-      // S1
-      { id:"201-150-AH", nom:"Math appliquées à l'informatique 1" },
-      { id:"243-285-AH", nom:"Composants physiques du matériel" },
-      { id:"420-238-AH", nom:"Programmation orientée objet 1" },
-      { id:"420-239-AH", nom:"Systèmes d'exploitation" },
-      { id:"420-240-AH", nom:"Bureautique et dessin" },
-      // S2
-      { id:"201-151-AH", nom:"Math appliquées à l'informatique 2" },
-      { id:"420-241-AH", nom:"Programmation orientée objet 2" },
-      { id:"420-242-AH", nom:"Réseaux locaux" },
-      // S3
-      { id:"350-131-AH", nom:"Communication en informatique" },
-      { id:"420-243-AH", nom:"Programmation orientée objet 3" },
-      { id:"420-244-AH", nom:"Bases de données applicatives" },
-      { id:"570-188-AH", nom:"Interfaces graphiques adaptatives" },
-      // S4
-      { id:"201-152-AH", nom:"Math appliquées à l’infographie jeux vidéo" },
-      { id:"420-245-AH", nom:"Programmation Web 1" },
-      { id:"420-246-AH", nom:"Programmation Microsoft" },
-      { id:"420-247-AH", nom:"Programmation Android" },
-    ];
+    // Ton code existant du calendrier ici...
 
-    // serviceId -> 2–3 tuteurs
-    const OFFRES = {
-      "201-150-AH":["t2","t6"],
-      "243-285-AH":["t4","t6"],
-      "420-238-AH":["t3","t5"],
-      "420-239-AH":["t4","t6"],
-      "420-240-AH":["t1","t5"],
-      "201-151-AH":["t2","t6"],
-      "420-241-AH":["t3","t5"],
-      "420-242-AH":["t4","t6"],
-      "350-131-AH":["t1","t5"],
-      "420-243-AH":["t3","t5"],
-      "420-244-AH":["t3","t2"],
-      "570-188-AH":["t1","t5"],
-      "201-152-AH":["t2","t6"],
-      "420-245-AH":["t3","t5","t2"],
-      "420-246-AH":["t4","t6","t5"],
-      "420-247-AH":["t3","t2"],
-    };
+    const btnSauvegarder = document.getElementById("btnSauvegarder");
 
-    const LS_KEY = "tutoplus_dispos";
-
-    const el = {
-      service: document.getElementById("service"),
-      tuteur:  document.getElementById("tuteur"),
-      date: document.getElementById("date"),
-      debut: document.getElementById("heureDebut"),
-      fin: document.getElementById("heureFin"),
-      etat: document.getElementById("etat"),
-      add: document.getElementById("btnAjouter"),
-      edit: document.getElementById("btnModifier"),
-      del: document.getElementById("btnSupprimer"),
-      msg: document.getElementById("message"),
-      liste: document.getElementById("listeDispos"),
-      tpl: document.getElementById("modeleLigne"),
-      empty: document.getElementById("emptyMsg"),
-    };
-
-    // Init selects
-    SERVICES.forEach(s => {
-      const o = document.createElement("option");
-      o.value = s.id; o.textContent = `${s.id} — ${s.nom}`;
-      el.service.appendChild(o);
+    btnSauvegarder.addEventListener("click", () => {
+      const calendarData = { events: disponibilites };
+      saveCalendar(calendarData);
     });
-    el.service.addEventListener("change", syncTuteurs);
 
-    function syncTuteurs(){
-      const ids = OFFRES[el.service.value] || [];
-      el.tuteur.innerHTML = "";
-      ids.forEach(id=>{
-        const t = TUTEURS.find(x=>x.id===id);
-        if (!t) return;
-        const o = document.createElement("option"); o.value=t.id; o.textContent=t.nom; el.tuteur.appendChild(o);
-      });
-    }
-
-    el.date.value = new Date().toISOString().slice(0,10);
-    syncTuteurs();
-
-    let selectionId = null;
-    let disponibilites = load();
-
-    el.add.addEventListener("click", ajouter);
-    el.edit.addEventListener("click", modifier);
-    el.del.addEventListener("click", supprimer);
-
-    render();
-
-    // Persistance
-    function load(){
-      try { return JSON.parse(localStorage.getItem(LS_KEY)||"[]"); } catch { return []; }
-    }
-    function save(){
-      localStorage.setItem(LS_KEY, JSON.stringify(disponibilites));
-    }
-
-    function msg(txt,type="ok"){ el.msg.textContent=txt; el.msg.dataset.type=type; }
-    function clearMsg(){ el.msg.textContent=""; el.msg.removeAttribute("data-type"); }
-
-    function lire(){
-      return {
-        serviceId: el.service.value,
-        tuteurId: el.tuteur.value,
-        date: (el.date.value||"").trim(),
-        debut: (el.debut.value||"").trim(),
-        fin: (el.fin.value||"").trim(),
-        etat: el.etat.value
-      };
-    }
-
-    function valide(d){
-      if (!d.serviceId || !d.tuteurId || !d.date || !d.debut || !d.fin){ msg("Complétez tous les champs.","err"); return false; }
-      if (d.debut >= d.fin){ msg("Début doit précéder fin.","err"); return false; }
-      return true;
-    }
-    function chevauche(aDeb,aFin,bDeb,bFin){ return aDeb < bFin && bDeb < aFin; }
-
-    function ajouter(){
-      clearMsg();
-      const d = lire(); if(!valide(d)) return;
-      if (disponibilites.some(x => x.tuteurId===d.tuteurId && x.date===d.date && chevauche(d.debut,d.fin,x.debut,x.fin))){
-        msg("Chevauchement avec un créneau du même tuteur.","err"); return;
+    // Charger la sauvegarde au démarrage
+    window.addEventListener("DOMContentLoaded", () => {
+      const data = loadCalendar();
+      if (data.events && Array.isArray(data.events)) {
+        disponibilites = data.events;
+        render();
       }
-      disponibilites.push({ id: Date.now()+Math.random(), ...d });
-      sortAll(); save(); render();
-      msg("Créneau ajouté.");
-    }
-
-    function modifier(){
-      clearMsg();
-      if (!selectionId){ msg("Sélectionnez un créneau dans la liste.","err"); return; }
-      const d = lire(); if(!valide(d)) return;
-      if (disponibilites.some(x => x.id!==selectionId && x.tuteurId===d.tuteurId && x.date===d.date && chevauche(d.debut,d.fin,x.debut,x.fin))){
-        msg("Chevauchement avec un autre créneau.","err"); return;
-      }
-      const i = disponibilites.findIndex(x=>x.id===selectionId);
-      if (i===-1){ msg("Créneau introuvable.","err"); selectionId=null; return; }
-      disponibilites[i] = { id: selectionId, ...d };
-      sortAll(); save(); render();
-      msg("Créneau modifié.");
-    }
-
-    function supprimer(){
-      clearMsg();
-      if (!selectionId){ msg("Sélectionnez un créneau à supprimer.","err"); return; }
-      disponibilites = disponibilites.filter(x=>x.id!==selectionId);
-      selectionId=null; save(); render();
-      msg("Créneau supprimé.");
-    }
-
-    function sortAll(){
-      disponibilites.sort((a,b)=>{
-        if (a.serviceId!==b.serviceId) return a.serviceId<b.serviceId?-1:1;
-        if (a.tuteurId!==b.tuteurId)   return a.tuteurId<b.tuteurId?-1:1;
-        if (a.date!==b.date)           return a.date<b.date?-1:1;
-        if (a.debut!==b.debut)         return a.debut<b.debut?-1:1;
-        return 0;
-      });
-    }
-
-    function render(){
-      el.liste.innerHTML = "";
-      el.empty.hidden = disponibilites.length>0;
-
-      disponibilites.forEach(d=>{
-        const n = el.tpl.content.cloneNode(true);
-        const btn = n.querySelector(".ligne");
-        if (d.id===selectionId) btn.classList.add("selected");
-
-        n.querySelector(".service").textContent = (SERVICES.find(s=>s.id===d.serviceId)||{}).nom || d.serviceId;
-        n.querySelector(".tuteur").textContent  = (TUTEURS.find(t=>t.id===d.tuteurId)||{}).nom || d.tuteurId;
-        n.querySelector(".date").textContent    = d.date;
-        n.querySelector(".heures").textContent  = `${d.debut} – ${d.fin}`;
-        const et = n.querySelector(".etat");
-        et.textContent = d.etat==="disponible" ? "Disponible" : "Occupé";
-        et.dataset.state = d.etat;
-
-        btn.addEventListener("click", ()=>{
-          selectionId = d.id;
-          el.service.value = d.serviceId; syncTuteurs(); el.tuteur.value = d.tuteurId;
-          el.date.value = d.date; el.debut.value = d.debut; el.fin.value = d.fin; el.etat.value = d.etat;
-          [...document.querySelectorAll(".ligne")].forEach(x=>x.classList.remove("selected"));
-          btn.classList.add("selected");
-        });
-        el.liste.appendChild(n);
-      });
-    }
+    });
   </script>
 </body>
 </html>
-
