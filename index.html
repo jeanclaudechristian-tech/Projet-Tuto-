@@ -7,18 +7,23 @@
 </head>
 <body>
   <header>
-    <img src="assets/images/CollegeAhuntsic_Logo.png" alt="Collège Ahuntsic" class="logo-center">
 
     <!-- Menu de navigation -->
-    <nav class="nav">
-      <a href="../vue/creneauxEtudiant.html">Nos Services</a>
-    </nav>
+    <header class="tp-nav" role="banner">
+  <div class="tp-nav__inner">
+    <a class="tp-nav__brand" href="../index.html" aria-label="Accueil Collège Ahuntsic">
+      <img src="assets/images/CollegeAhuntsic_Logo.png" alt="Collège Ahuntsic" class="tp-nav__logo">
+    </a>
 
-    <p class="subtitle">Service de tutorat en informatique — Collège Ahuntsic</p>
-  </header>
+    <nav class="tp-nav__menu" role="navigation" aria-label="Navigation principale">
+      <a href="../index.html">Accueil</a>
+      <a href="./vue/connexion.html">Connexion</a>
+    </nav>
+  </div>
+</header>
   <!-- Les services avec une mini description -->
   <main>
-    <h2>Nos services</h2>
+    <h2><a href="./vue/creneauxEtudiant.html">Prise de rendez rendez-vous</a></h2>
     <ul>
       <li>
         <strong>Programmation</strong> — Apprends à coder en Java et à développer une logique solide. 
